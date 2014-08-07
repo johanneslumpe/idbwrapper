@@ -1,7 +1,11 @@
 {
-  "name": "idb-wrapper",
+  "name": "idbwrapper",
   "version": "0.0.1",
   "description": "A basic wrapper around the indexeddb api",
+  "repository": {
+    "type": "git",
+    "url": "http://github.com/johanneslumpe/idbwrapper.git"
+  },
   "main": "src/idbwrapper.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
