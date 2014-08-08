@@ -27,7 +27,8 @@ QueryWrapper.queryTypes = {
   INSERT: 'INSERT',
   UPSERT: 'UPSERT',
   REMOVE: 'REMOVE',
-  COUNT: 'COUNT'
+  COUNT: 'COUNT',
+  CLEAR: 'CLEAR'
 };
 
 QueryWrapper.prototype._execute = function () {
@@ -52,7 +53,10 @@ QueryWrapper.prototype._execute = function () {
       break;
     case QueryWrapper.queryTypes.COUNT:
       method = this._count.bind(this);
-      break;             
+      break;    
+    case QueryWrapper.queryTypes.CLEAR:
+      method = this._clear.bind(this);
+      break;                   
   }
 
   if (method) {
@@ -91,6 +95,7 @@ QueryWrapper.prototype._setQueryTypeAndTransactionMode = function (type) {
     case QueryWrapper.queryTypes.INSERT:
     case QueryWrapper.queryTypes.UPSERT:
     case QueryWrapper.queryTypes.REMOVE:
+    case QueryWrapper.queryTypes.CLEAR:
       transactionMode = QueryWrapper.transactionMode.READWRITE;
       break;
   }
@@ -236,15 +241,17 @@ QueryWrapper.prototype._upsert = function (tx) {
   return _handleInsertUpsert.call(this, tx);
 };
 
-/**
- * Executes a remove query
- * @param  {IDBTransaction} tx A Transaction
- * @return {Object}            A promise
- */
-QueryWrapper.prototype._remove = function (tx) {
+
+var _handleRemoveClear = function (tx) {
   var storename = this._storename;
-  var p   = Promise.defer();
-  var req = tx.objectStore(storename).delete(this._deleteKey);
+  var p         = Promise.defer();
+  var method    = this._queryType === QueryWrapper.queryTypes.REMOVE ?
+                  'delete' :
+                  'clear';
+
+  // we can just pass in the key to both methods, as it will
+  // just be ignored for clear              
+  var req = tx.objectStore(storename)[method](this._deleteKey);
 
   req.onerror = function (e) {
     p.reject(e.target.error.message);
@@ -255,6 +262,24 @@ QueryWrapper.prototype._remove = function (tx) {
   };
 
   return p.promise;
+};
+
+/**
+ * Executes a remove query
+ * @param  {IDBTransaction} tx A Transaction
+ * @return {Object}            A promise
+ */
+QueryWrapper.prototype._remove = function (tx) {
+  return _handleRemoveClear.call(this, tx);
+};
+
+/**
+ * Executes a clear query
+ * @param  {IDBTransaction} tx A Transaction
+ * @return {Object}            A promise
+ */
+QueryWrapper.prototype._clear = function (tx) {
+  return _handleRemoveClear.call(this, tx);
 };
 
 /**
@@ -383,6 +408,15 @@ QueryWrapper.prototype.remove = function (key) {
   }
   this._deleteKey = key;
   this._setQueryTypeAndTransactionMode(QueryWrapper.queryTypes.REMOVE);
+  return this;
+};
+
+/**
+ * Prepares a clear query
+ * @return {Object} The QueryWrapper instance
+ */
+QueryWrapper.prototype.clear = function () {
+  this._setQueryTypeAndTransactionMode(QueryWrapper.queryTypes.CLEAR);
   return this;
 };
 
