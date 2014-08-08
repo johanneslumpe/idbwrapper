@@ -58,9 +58,8 @@ TransactionWrapper.prototype.performTransaction = function () {
       transaction.abort();
     } catch (e) {}
   };
-  transaction.onabort = function (e) {
+  transaction.onabort = function () {
     console.log('TRANSACTION ABORT');
-    var error = error instanceof Error ? error : new Error(e.target.error.message);
     successPromise.reject(error);
   };
   transaction.oncomplete = function (e) {
@@ -83,8 +82,8 @@ TransactionWrapper.prototype.performTransaction = function () {
     return this._callback(this);
   }.bind(this))
   .catch(function (e) {
-    transaction.abort();
     error = e;
+    transaction.abort();
   }).then(function () {
     return successPromise.promise;
   });
