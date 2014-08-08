@@ -33,7 +33,7 @@ var TransactionWrapper = function (availableStores, callback, db) {
       enumerable:true,
       get: (function (store) {
         return function () {
-          return new QueryWrapper(store, this._transactionPromise);
+          return new QueryWrapper(store, this._transactionPromise, true);
         };
       }(store))
     });
@@ -46,9 +46,13 @@ var TransactionWrapper = function (availableStores, callback, db) {
 TransactionWrapper.prototype.performTransaction = function () {
   // TODO: auto-determine whether to use readonly or readwrite
   var transaction = this._database.transaction(this._availableStores, 'readwrite');
+  var successPromise = Promise.defer();
+
+  var error;
 
   transaction.onerror = function (e) {
     console.log('TRANSACTION ERROR');
+    error = e;
     try {
       // transaction might already have been aborted
       transaction.abort();
@@ -56,9 +60,12 @@ TransactionWrapper.prototype.performTransaction = function () {
   };
   transaction.onabort = function (e) {
     console.log('TRANSACTION ABORT');
+    var error = error instanceof Error ? error : new Error(e.target.error.message);
+    successPromise.reject(error);
   };
   transaction.oncomplete = function (e) {
     console.log('TRANSACTION COMPLETE');
+    successPromise.resolve();
   };
 
   // inject a fake IDB object for now
@@ -77,7 +84,9 @@ TransactionWrapper.prototype.performTransaction = function () {
   }.bind(this))
   .catch(function (e) {
     transaction.abort();
-    throw e;
+    error = e;
+  }).then(function () {
+    return successPromise.promise;
   });
 };
 
