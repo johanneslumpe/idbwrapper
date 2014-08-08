@@ -167,54 +167,64 @@ QueryWrapper.prototype._findAll = function (tx) {
 };
 
 /**
+ * Handles both insert an upsert statements
+ * for both batch and key insert/upserts
+ * @param  {IDBTransaction} tx The transaction
+ * @return {Object}            A Promise
+ */
+var _handleInsertUpsert = function (tx) {
+  var storename     = this._storename;
+  var insertedData  = [];
+  var p             = Promise.defer();
+  var transaction   = tx;
+  var key           = this['_' + this._queryType.toLowerCase() + 'Key'];
+  var insertedItemCount = 0;
+  var totalItemCount;
+  var method = this._queryType === QueryWrapper.queryTypes.INSERT ?
+               'add' :
+               'put';
+  
+  var store = transaction.objectStore(storename);
+
+  var storeMethod = function (item) {
+    var req = key ?
+              store[method](item, key) :
+              store[method](item);
+
+    req.onsuccess = function (e) {
+      insertedData.push(item);
+      insertedItemCount++;
+      if (insertedItemCount === totalItemCount) {
+        p.resolve(insertedData);
+      }
+    };
+
+    req.onerror = function (e) {
+      p.reject(new Error(e.target.error.message));
+    };
+  };
+
+  // if a key is provided, then the value should be inserted 
+  // as-is without trying to loop through it
+  // TODO: proper key check
+  if (key != null) {
+    totalItemCount = 1;
+    storeMethod(this._values);
+  } else {
+    totalItemCount = this._values.length;
+    this._values.forEach(storeMethod);
+  }
+
+  return p.promise; 
+};
+
+/**
  * Inserts data into the store
  * @param  {IDBTransaction} tx A Transaction
  * @return {Object}            A promise
  */
 QueryWrapper.prototype._insert = function (tx) {
-  var storename     = this._storename;
-  var insertedData  = [];
-  var p             = Promise.defer();
-  var transaction   = tx;
-  
-  var resolve = function () {
-    p.resolve(insertedData);
-  };
-
-  var reject = function (e) {
-    p.reject(new Error(e.target.error.message));
-  };
-
-  // transaction.onerror = function (e) {
-  //   p.reject(new Error(e.target.error.message));
-  // };
-
-  // transaction.oncomplete = function (e) {
-  //   p.resolve(insertedData);
-  // };
-
-  var store = transaction.objectStore(storename);
-  var totalItemCount = this._values.length;
-  var insertedItemCount = 0;
-  this._values.forEach(function (item) {
-    var req = store.add(item);
-    req.onsuccess = function (e) {
-      // e.target.result contains the key value
-      // insertedData.push(e.target.result);
-      insertedData.push(item);
-      insertedItemCount++;
-
-      if (insertedItemCount === totalItemCount) {
-        resolve();
-      }
-    };
-
-    req.onerror = function (e) {
-      reject(e);
-    };
-  });
-
-  return p.promise;
+  return _handleInsertUpsert.call(this, tx);
 };
 
 /**
@@ -223,47 +233,7 @@ QueryWrapper.prototype._insert = function (tx) {
  * @return {Object}            A promise
  */
 QueryWrapper.prototype._upsert = function (tx) {
-  var storename     = this._storename;
-  var insertedData  = [];
-  var p             = Promise.defer();
-  var transaction   = tx;
-
-  var resolve = function () {
-    p.resolve(insertedData);
-  };
-
-  var reject = function (e) {
-    e = e instanceof Error ? e : new Error(e.target.error.message);
-    p.reject(e);
-  };
-  var store = transaction.objectStore(storename);
-  var totalItemCount = this._values.length;
-  var insertedItemCount = 0;
-  this._values.forEach(function (item) {
-    try {
-      var req = store.put(item);
-      req.onsuccess = function (e) {
-        // e.target.result contains the key value
-        // insertedData.push(e.target.result);
-        insertedData.push(item);
-        insertedItemCount++;
-
-        if (insertedItemCount === totalItemCount) {
-          resolve();
-        }
-      };
-
-      req.onerror = function (e) {
-        reject(e);
-      };
-    } catch (e) {
-      console.log('ERROR',e);
-      transaction.abort();
-      reject(e);
-    }
-  });
-
-  return p.promise;
+  return _handleInsertUpsert.call(this, tx);
 };
 
 /**
@@ -352,17 +322,31 @@ QueryWrapper.prototype.find = function (key, required) {
 };
 
 /**
+ * Processes inserts and upserts
+ * @param  {Mixed} values The values to insert
+ * @param  {Mixed} key    The key to store the value in, optional
+ * @param  {String} type  Whether we want to insert or upsert
+ * @return {Object}       The QueryWrapper instance
+ */
+var handleInsertUpsert = function (values, key, type) {
+  if (!Array.isArray(values) && !key) {
+    throw new Error(type.toLowerCase() + ' expects an array of values');
+  }
+
+  this._values = values;
+  this['_' + type.toLowerCase() + 'Key'] = key;
+  this._setQueryTypeAndTransactionMode(type);
+
+  return this;
+};
+
+/**
  * Prepares an insert
  * @param  {Array} values  The values to insert
  * @return {Object}        The QueryWrapper instance
  */
-QueryWrapper.prototype.insert = function (values) {
-  if (!Array.isArray(values)) {
-    throw new Error('insert expects an array of values');
-  }
-  this._values = values;
-  this._setQueryTypeAndTransactionMode(QueryWrapper.queryTypes.INSERT);
-  return this;
+QueryWrapper.prototype.insert = function (values, key) {
+  return handleInsertUpsert.call(this, values, key, QueryWrapper.queryTypes.INSERT);
 };
 
 /**
@@ -370,13 +354,8 @@ QueryWrapper.prototype.insert = function (values) {
  * @param  {Array} values  The values to insert or update
  * @return {Object}        The QueryWrapper instance
  */
-QueryWrapper.prototype.upsert = function (values) {
-  if (!Array.isArray(values)) {
-    throw new Error('upsert exepcts an array of values');
-  }
-  this._values = values;
-  this._setQueryTypeAndTransactionMode(QueryWrapper.queryTypes.UPSERT);
-  return this;
+QueryWrapper.prototype.upsert = function (values, key) {
+  return handleInsertUpsert.call(this, values, key, QueryWrapper.queryTypes.UPSERT);
 };
 
 /**
