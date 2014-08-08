@@ -6,7 +6,7 @@
  * Stores all query options and compiles a query
  * @param {String} store The store to query
  */
-var QueryWrapper = function (store, owningInstanceConnectionPromise) {
+var QueryWrapper = function (store, owningInstanceConnectionPromise, insideTransaction) {
   this._storename = store;
   this._connectionPromise = owningInstanceConnectionPromise;
 
@@ -14,6 +14,7 @@ var QueryWrapper = function (store, owningInstanceConnectionPromise) {
 
   this._queryType = null;
   this._tranctionMode = QueryWrapper.transactionMode.READONLY;
+  this._isInsideTransaction = !!insideTransaction;
 };
 
 QueryWrapper.transactionMode = {
@@ -60,10 +61,34 @@ QueryWrapper.prototype._execute = function () {
   }
 
   if (method) {
-    return p.then(function (idb) {
-      return idb._database.transaction([this._storename], this._tranctionMode);
+    var tx;
+    var returnPromise = p.then(function (idb) {
+      tx = idb._database.transaction([this._storename], this._tranctionMode);
+      return tx;
     }.bind(this))
     .then(method);
+
+    if (!this._isInsideTransaction) {
+      returnPromise = returnPromise.then(function (result) {
+        // we have to wait for the transaction to be completed
+        // before the next chained statement can happen, in order
+        // to guarantee that changed have been made, if we are
+        // using separate transactions. actions made inside a single
+        // transactions are consistent
+        var p = Promise.defer();
+        tx.oncomplete = function () {
+          p.resolve(result);
+        };
+        tx.onerror = function (e) {
+          p.reject(new Error(e.target.error.message));
+        };
+        return p.promise;
+      });
+    } else {
+      tx = null;
+    }
+
+    return returnPromise;
   }
 
   throw new Error('No valid method has been selected, this query will not produce anything');
