@@ -65,20 +65,30 @@ IDBWrapper.prototype.open = function (closeAndReopen) {
  * @return {Object}            A promise
  */
 IDBWrapper.prototype.transaction = function (stores,callback) {
-  if (!Array.isArray(stores)) {
-    throw new Error('Expecting an array of stores for the transaction');
-  }
-  var transactionStores = stores.filter(function (store) {
-    return this._availableStores.indexOf(store) !== -1; 
-  }, this);
+  var transactionStores;
+  var options = {};
 
-  if (!transactionStores.length) {
-    throw new Error('No valid stores specified');
+  if (typeof stores !== 'function') {
+    if (!Array.isArray(stores)) {
+      throw new Error('Expecting an array of stores for the transaction');
+    }
+    transactionStores = stores.filter(function (store) {
+      return this._availableStores.indexOf(store) !== -1; 
+    }, this);
+
+    if (!transactionStores.length) {
+      throw new Error('No valid stores specified');
+    }
+  } else {
+    // no stores have been specified, so we should auto detect them
+    options.autoDetectUsedStores = true;
+    transactionStores = this._availableStores;
+    // only a callback was passed in, reassign variable
+    callback = stores;
   }
-  var wrapper = new TransactionWrapper(transactionStores, callback, this._database);
-  //TODO figure out how to properly return the reurn value from the callback
+
+  var wrapper = new TransactionWrapper(transactionStores, callback, this._database, options);
   return wrapper.performTransaction();
-  // return result;
 };
 
 /**
