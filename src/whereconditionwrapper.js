@@ -55,12 +55,57 @@ WhereConditionWrapper.prototype.getCondition = function () {
   }
 };
 
+/**
+ * Get the name of the field/index this condition should be applid to
+ * @return {String} The field/index name
+ */
 WhereConditionWrapper.prototype.getName = function () {
   return this._name;
 };
 
+/**
+ * Checks whether the condition is of the passed in type
+ * @param  {String}  type The type to compare
+ * @return {Boolean}      Whether the condition is the expected type
+ */
 WhereConditionWrapper.prototype.isType = function (type) {
   return this._type === type;
+};
+
+/**
+ * Returns the comparator function for the condition type
+ * @return {Function} The comparator function
+ */
+WhereConditionWrapper.prototype.getComparator = function () {
+  if (!this.isType(WhereConditionWrapper.conditionTypes.FIELD)) {
+    throw new Error('only field where conditions can generate comparators');
+  }
+
+  return this.comparators[this._comparisonType].bind(this);
+};
+
+WhereConditionWrapper.prototype.comparators = {
+  EQUALS: function (value) {
+    return value === this._compareValue;
+  },
+  BETWEEN: function (value) {
+    return value > this._compareValue[0] && value < this._compareValue[1];
+  },
+  RANGE: function (value) {
+    return value >= this._compareValue[0] && value <= this._compareValue[1];
+  },
+  GREATERTHAN: function (value) {
+    return value > this._compareValue;
+  },  
+  GREATERTHANEQUAL: function (value) {
+    return value >= this._compareValue;
+  },    
+  LESSTHAN: function (value) {
+    return value < this._compareValue;
+  },  
+  LESSTHANEQUAL: function (value) {
+    return value <= this._compareValue;
+  }    
 };
 
 /**

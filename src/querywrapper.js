@@ -216,6 +216,7 @@ QueryWrapper.prototype._findWithConditions = function (store, promise) {
   var indexCondition = getIndexCondition(this._whereConditions);
   // we only allow a single index condition for now
   indexCondition = indexCondition.length ? indexCondition[0] : false;
+  var fieldConditions = getFieldConditions(this._whereConditions);
   // var searchObject = indexCondition ? store.index(indexCondition.getName()) : store;
   var searchObject;
   if (indexCondition) {
@@ -236,7 +237,16 @@ QueryWrapper.prototype._findWithConditions = function (store, promise) {
     if (cursor) {
       // TODO: maybe push an object containing key and primary key together
       // with the value?
-      results.push(cursor.value);
+      
+      if (fieldConditions) {
+        if (fieldConditions.every(function (condition) {
+          return condition.getComparator()(cursor.value[condition.getName()]);
+        })) {
+          results.push(cursor.value);
+        }
+      } else {
+        results.push(cursor.value);
+      }
       e.target.result.continue(); 
     } else {
       console.log('no more data');
@@ -257,6 +267,12 @@ QueryWrapper.prototype._findWithConditions = function (store, promise) {
 var getIndexCondition = function (arr) {
   return arr.filter(function (item) {
     return item.isType(WhereConditionWrapper.conditionTypes.INDEX);
+  });
+};
+
+var getFieldConditions = function (arr) {
+  return arr.filter(function (item) {
+    return item.isType(WhereConditionWrapper.conditionTypes.FIELD);
   });
 };
 
