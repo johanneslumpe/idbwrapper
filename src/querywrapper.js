@@ -2,6 +2,8 @@
 /* global IDBKeyRange: true, Promise: true */
 'use strict';
 
+var WhereConditionWrapper = require('./whereconditionwrapper');
+
 /**
  * Stores all query options and compiles a query
  * @param {String} store The store to query
@@ -11,6 +13,7 @@ var QueryWrapper = function (store, owningInstanceConnectionPromise, insideTrans
   this._connectionPromise = owningInstanceConnectionPromise;
 
   this._findKey = null;
+  this._whereConditions = [];
 
   this._queryType = null;
   this._tranctionMode = QueryWrapper.transactionMode.READONLY;
@@ -104,6 +107,32 @@ QueryWrapper.prototype._execute = function () {
   };
 });
 
+
+Object.defineProperty(QueryWrapper.prototype, 'where', {
+  get: function () {
+    var queryWrapper = this;
+    return {
+      index: function (indexName) {
+        // if (!store.indexNames.contains(indexName)) {
+        //   console.warn('the index ' + indexName + ' does not exist');
+        // }
+        var condition = new WhereConditionWrapper(indexName, WhereConditionWrapper.conditionTypes.INDEX, queryWrapper);
+        queryWrapper._whereConditions.push(condition);
+        return condition;
+      },
+
+      field: function (fieldname) {
+        var condition = new WhereConditionWrapper(fieldname, WhereConditionWrapper.conditionTypes.FIELD, queryWrapper);
+        queryWrapper._whereConditions.push(condition);
+        return condition;
+      }
+    };
+  }
+});
+
+/**
+ * Sets the query type and the according mode for the transaction
+ */
 QueryWrapper.prototype._setQueryTypeAndTransactionMode = function (type) {
 
   if (!QueryWrapper.queryTypes[type]) {
@@ -137,29 +166,98 @@ QueryWrapper.prototype._setQueryTypeAndTransactionMode = function (type) {
 QueryWrapper.prototype._find = function (tx) {
   var storename = this._storename;
   var key       = this._findKey;
-  var required  = this._findRequired;
   var p         = Promise.defer();
   var store     = tx.objectStore(storename);
 
   if (!store) {
     p.reject(new Error('no such object store'));
   }
-  
+  // TODO proper key handling
+  if (key) {
+    this._findForKey(store, key, p);
+  } else if(this._whereConditions.length) {
+    this._findWithConditions(store, p);
+  } else {
+    p.reject(new Error('neither key nor conditions specified'));
+  }
+
+  return p.promise;  
+
+};
+
+/**
+ * Tries to find a record for a single key
+ * @param  {IDBObjectStore} store The store to search in
+ * @param  {Mixed} key            The key to search for
+ * @param  {Object} promise       A deferred promise
+ */
+QueryWrapper.prototype._findForKey = function (store, key, promise) {
+  var required  = this._findRequired;
   var req = store.get(key);
 
   req.onsuccess = function (e) {
     if (required && e.target.result === undefined) {
-      return p.reject(new Error('No item found for key "' + key + '"'));
+      return promise.reject(new Error('No item found for key "' + key + '"'));
     }
-    p.resolve(e.target.result);
+    promise.resolve(e.target.result);
   };
 
   req.onerror = function (e) {
-    p.reject(e.target.error.message);
+    promise.reject(e.target.error.message);
+  };  
+};
+
+/**
+ * Tries to find a record based on where conditions
+ * @param  {IDBObjectStore} store   The store to search in
+ * @param  {Object} promise         A deferred promise
+ */
+QueryWrapper.prototype._findWithConditions = function (store, promise) {
+  var indexCondition = getIndexCondition(this._whereConditions);
+  // we only allow a single index condition for now
+  indexCondition = indexCondition.length ? indexCondition[0] : false;
+  // var searchObject = indexCondition ? store.index(indexCondition.getName()) : store;
+  var searchObject;
+  if (indexCondition) {
+    var name = indexCondition.getName();
+    searchObject = store.index(name);
+  } else {
+    searchObject = store;
+  }
+  // TODO: use either index or keypath condition
+  var range = indexCondition ? indexCondition.getCondition() : null;
+
+  // TODO: allow ordering (prev/next);
+  var req = searchObject.openCursor(range, 'next');
+
+  var results = [];
+  req.onsuccess = function (e) {
+    var cursor = e.target.result;
+    if (cursor) {
+      // TODO: maybe push an object containing key and primary key together
+      // with the value?
+      results.push(cursor.value);
+      e.target.result.continue(); 
+    } else {
+      console.log('no more data');
+      promise.resolve(results);
+    }
   };
 
-  return p.promise;  
+  req.onerror = function (e) {
+    promise.reject(new Error(e.target.error.message));
+  };
+};
 
+/**
+ * Helper to filter WhereConditionWrappers with type set to INDEX from an array
+ * @param  {Array} arr The array to filter
+ * @return {Array}     The resulting array of index conditions
+ */
+var getIndexCondition = function (arr) {
+  return arr.filter(function (item) {
+    return item.isType(WhereConditionWrapper.conditionTypes.INDEX);
+  });
 };
 
 /**
