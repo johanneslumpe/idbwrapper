@@ -95,10 +95,10 @@ TransactionWrapper.prototype.performTransaction = function () {
 
   return this._transactionPromise
   .then(function (result) {
-    return this._callback(this)
-    .then(function (result) {
-      this._callbackResult = result;
-    }.bind(this));
+    return this._callback(this);
+  }.bind(this))
+  .then(function (result) {
+    this._callbackResult = result;
   }.bind(this))
   .catch(function (e) {
     error = e;
