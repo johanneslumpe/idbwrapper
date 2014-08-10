@@ -18,6 +18,7 @@ var TransactionWrapper = function (availableStores, callback, db, options) {
   this._callback = callback;
   this._transactionDeferred = Promise.defer();
   this._transactionPromise = this._transactionDeferred.promise;
+  this._callbackResult = null;
 
   this._autoDetectUsedStores = !!options.autoDetectUsedStores;
 
@@ -76,9 +77,10 @@ TransactionWrapper.prototype.performTransaction = function () {
     console.log('TRANSACTION ABORT');
     successPromise.reject(error);
   };
+  var self = this;
   transaction.oncomplete = function (e) {
     console.log('TRANSACTION COMPLETE');
-    successPromise.resolve();
+    successPromise.resolve(self._callbackResult);
   };
 
   // inject a fake IDB object for now
@@ -93,7 +95,10 @@ TransactionWrapper.prototype.performTransaction = function () {
 
   return this._transactionPromise
   .then(function (result) {
-    return this._callback(this);
+    return this._callback(this)
+    .then(function (result) {
+      this._callbackResult = result;
+    }.bind(this));
   }.bind(this))
   .catch(function (e) {
     error = e;
