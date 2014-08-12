@@ -121,6 +121,7 @@ describe('WhereConditionWrapper', function () {
       );
 
       // mock comparator
+      var original = WhereConditionWrapper.prototype.comparators.EQUALS;
       var spy = WhereConditionWrapper.prototype.comparators.EQUALS = sinon.spy();
 
       wrapper._comparisonType = WhereConditionWrapper.comparisonTypes.EQUALS;
@@ -129,6 +130,9 @@ describe('WhereConditionWrapper', function () {
       expect(returnedComparator).to.not.equal(spy);
       returnedComparator();
       expect(spy.calledOnce).to.equal(true);
+
+      // everything back to normal
+      WhereConditionWrapper.prototype.comparators.EQUALS = original;
     });
 
   });
