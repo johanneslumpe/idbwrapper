@@ -224,7 +224,7 @@ describe('WhereConditionWrapper', function () {
       });
 
       it('calls _setComparisonTypeAndReturnParent with a comparison type of GREATERTHAN', function () {
-        wrapper.greaterThan(10)
+        wrapper.greaterThan(10);
         expect(setComparisonTypeSpy.calledWithExactly(WhereConditionWrapper.comparisonTypes.GREATERTHAN)).to.equal(true);
       });
 
