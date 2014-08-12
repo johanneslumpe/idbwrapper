@@ -13,14 +13,14 @@ module.exports = {
   },
   GREATERTHAN: function (value) {
     return value > this._comparisonValue;
-  },  
+  },
   GREATERTHANEQUAL: function (value) {
     return value >= this._comparisonValue;
-  },    
+  },
   LESSTHAN: function (value) {
     return value < this._comparisonValue;
-  },  
+  },
   LESSTHANEQUAL: function (value) {
     return value <= this._comparisonValue;
-  }    
-}
+  }
+};
