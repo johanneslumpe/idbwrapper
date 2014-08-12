@@ -8,7 +8,7 @@
   },
   "main": "src/idbwrapper.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "browserify test/index.js -o test/tests.build.js && echo \"Tests successfully built. Now open testrunner.html in your browser\""
   },
   "author": "Johannes Lumpe",
   "license": "MIT",
