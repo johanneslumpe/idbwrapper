@@ -14,8 +14,10 @@ var WhereConditionWrapper = function (name, type, parentQuery) {
   this._type = type;
   this._name = name;
   this._usesField = type === WhereConditionWrapper.conditionTypes.FIELD;
+
   this._range = null;
-  this._compareValue = null;
+  this._comparisonValue = null;
+  this._comparisonType = null;
 };
 
 WhereConditionWrapper.conditionTypes = {
@@ -48,8 +50,8 @@ WhereConditionWrapper.prototype._setComparisonTypeAndReturnParent = function (ty
  * @return {Mixed} The condition
  */
 WhereConditionWrapper.prototype.getCondition = function () {
-  if (this._uses) {
-    return this._compareValue;
+  if (this._usesField) {
+    return this._comparisonValue;
   } else {
     return this._range;
   }
@@ -86,25 +88,25 @@ WhereConditionWrapper.prototype.getComparator = function () {
 
 WhereConditionWrapper.prototype.comparators = {
   EQUALS: function (value) {
-    return value === this._compareValue;
+    return value === this._comparisonValue;
   },
   BETWEEN: function (value) {
-    return value > this._compareValue[0] && value < this._compareValue[1];
+    return value > this._comparisonValue[0] && value < this._comparisonValue[1];
   },
   RANGE: function (value) {
-    return value >= this._compareValue[0] && value <= this._compareValue[1];
+    return value >= this._comparisonValue[0] && value <= this._comparisonValue[1];
   },
   GREATERTHAN: function (value) {
-    return value > this._compareValue;
+    return value > this._comparisonValue;
   },  
   GREATERTHANEQUAL: function (value) {
-    return value >= this._compareValue;
+    return value >= this._comparisonValue;
   },    
   LESSTHAN: function (value) {
-    return value < this._compareValue;
+    return value < this._comparisonValue;
   },  
   LESSTHANEQUAL: function (value) {
-    return value <= this._compareValue;
+    return value <= this._comparisonValue;
   }    
 };
 
@@ -117,7 +119,7 @@ var onlyEquals = function (value) {
   if (!this._usesField) {
     this._range = IDBKeyRange.only(value);
   } else {
-    this._compareValue = value;
+    this._comparisonValue = value;
   }
 
   return this._setComparisonTypeAndReturnParent(
@@ -153,7 +155,7 @@ WhereConditionWrapper.prototype.between = function (value1, value2) {
   if (!this._usesField) {
     this._range = IDBKeyRange.bound(value1, value2, true, true);
   } else {
-    this._compareValue = [value1, value2];
+    this._comparisonValue = [value1, value2];
   }
   
   return this._setComparisonTypeAndReturnParent(
@@ -173,7 +175,7 @@ WhereConditionWrapper.prototype.range = function (value1, value2) {
   if (!this._usesField) {
     this._range = IDBKeyRange.bound(value1, value2);
   } else {
-    this._compareValue = [value1, value2];
+    this._comparisonValue = [value1, value2];
   }
   
   return this._setComparisonTypeAndReturnParent(
@@ -192,7 +194,7 @@ WhereConditionWrapper.prototype.greaterThan = function (value) {
   if (!this._usesField) {
     this._range = IDBKeyRange.lowerBound(value, true);
   } else {
-    this._compareValue = value;
+    this._comparisonValue = value;
   }
   
   return this._setComparisonTypeAndReturnParent(
@@ -209,7 +211,7 @@ WhereConditionWrapper.prototype.greaterThanEqual = function (value) {
   if (!this._usesField) {
     this._range = IDBKeyRange.lowerBound(value);
   } else {
-    this._compareValue = value;
+    this._comparisonValue = value;
   }
   
   return this._setComparisonTypeAndReturnParent(
@@ -227,7 +229,7 @@ WhereConditionWrapper.prototype.lessThan = function (value) {
   if (!this._usesField) {
     this._range = IDBKeyRange.upperBound(value, true);
   } else {
-    this._compareValue = value;
+    this._comparisonValue = value;
   }
   
   return this._setComparisonTypeAndReturnParent(
@@ -245,7 +247,7 @@ WhereConditionWrapper.prototype.lessThanEqual = function (value) {
   if (!this._usesField) {
     this._range = IDBKeyRange.upperBound(value);
   } else {
-    this._compareValue = value;
+    this._comparisonValue = value;
   }
   
   return this._setComparisonTypeAndReturnParent(
