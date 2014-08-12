@@ -57,10 +57,10 @@ QueryWrapper.prototype._execute = function () {
       break;
     case QueryWrapper.queryTypes.COUNT:
       method = this._count.bind(this);
-      break;    
+      break;
     case QueryWrapper.queryTypes.CLEAR:
       method = this._clear.bind(this);
-      break;                   
+      break;
   }
 
   if (method) {
@@ -98,7 +98,7 @@ QueryWrapper.prototype._execute = function () {
 };
 
 // add then and catch methods to the prototype,
-// so they can be used to kick of execution of 
+// so they can be used to kick of execution of
 // the query
 ['then', 'catch'].forEach(function (method) {
   QueryWrapper.prototype[method] = function () {
@@ -107,24 +107,31 @@ QueryWrapper.prototype._execute = function () {
   };
 });
 
+var createWhereConditionWrapperAndPushToStack = function (name, type, queryWrapper) {
+  var condition = new WhereConditionWrapper(name, type, queryWrapper);
+  queryWrapper._whereConditions.push(condition);
+  return condition;
+};
+
 
 Object.defineProperty(QueryWrapper.prototype, 'where', {
   get: function () {
     var queryWrapper = this;
     return {
       index: function (indexName) {
-        // if (!store.indexNames.contains(indexName)) {
-        //   console.warn('the index ' + indexName + ' does not exist');
-        // }
-        var condition = new WhereConditionWrapper(indexName, WhereConditionWrapper.conditionTypes.INDEX, queryWrapper);
-        queryWrapper._whereConditions.push(condition);
-        return condition;
+        return createWhereConditionWrapperAndPushToStack(
+          indexName,
+          WhereConditionWrapper.conditionTypes.INDEX,
+          queryWrapper
+        );
       },
 
       field: function (fieldname) {
-        var condition = new WhereConditionWrapper(fieldname, WhereConditionWrapper.conditionTypes.FIELD, queryWrapper);
-        queryWrapper._whereConditions.push(condition);
-        return condition;
+        return createWhereConditionWrapperAndPushToStack(
+          fieldname,
+          WhereConditionWrapper.conditionTypes.FIELD,
+          queryWrapper
+        );
       }
     };
   }
@@ -181,7 +188,7 @@ QueryWrapper.prototype._find = function (tx) {
     p.reject(new Error('neither key nor conditions specified'));
   }
 
-  return p.promise;  
+  return p.promise;
 
 };
 
@@ -204,7 +211,7 @@ QueryWrapper.prototype._findForKey = function (store, key, promise) {
 
   req.onerror = function (e) {
     promise.reject(e.target.error.message);
-  };  
+  };
 };
 
 /**
@@ -237,8 +244,9 @@ QueryWrapper.prototype._findWithConditions = function (store, promise) {
     if (cursor) {
       // TODO: maybe push an object containing key and primary key together
       // with the value?
-      
+
       if (fieldConditions) {
+        // TODO: cache comparators and condition names?!
         if (fieldConditions.every(function (condition) {
           return condition.getComparator()(cursor.value[condition.getName()]);
         })) {
@@ -247,9 +255,11 @@ QueryWrapper.prototype._findWithConditions = function (store, promise) {
       } else {
         results.push(cursor.value);
       }
-      e.target.result.continue(); 
+      e.target.result.continue();
     } else {
       console.log('no more data');
+      // TODO: implement additional filtering and sorting here
+      // should be done in a worker thread if possible
       promise.resolve(results);
     }
   };
@@ -327,7 +337,7 @@ var _handleInsertUpsert = function (tx) {
   var method = this._queryType === QueryWrapper.queryTypes.INSERT ?
                'add' :
                'put';
-  
+
   var store = transaction.objectStore(storename);
 
   var storeMethod = function (item) {
@@ -348,7 +358,7 @@ var _handleInsertUpsert = function (tx) {
     };
   };
 
-  // if a key is provided, then the value should be inserted 
+  // if a key is provided, then the value should be inserted
   // as-is without trying to loop through it
   // TODO: proper key check
   if (key != null) {
@@ -359,7 +369,7 @@ var _handleInsertUpsert = function (tx) {
     this._values.forEach(storeMethod);
   }
 
-  return p.promise; 
+  return p.promise;
 };
 
 /**
@@ -389,7 +399,7 @@ var _handleRemoveClear = function (tx) {
                   'clear';
 
   // we can just pass in the key to both methods, as it will
-  // just be ignored for clear              
+  // just be ignored for clear
   var req = tx.objectStore(storename)[method](this._deleteKey);
 
   req.onerror = function (e) {
