@@ -13,8 +13,8 @@ var TransactionWrapper = require('./transactionwrapper');
  */
 var IDBWrapper = function IDBWrapper(database, version) {
   this._databaseName = database;
-  this._version = version; 
-  this._availableStores = []; 
+  this._version = version;
+  this._availableStores = [];
   Object.defineProperty(this, 'schema', {
     get: function () {
       if (!this._schema) {
@@ -40,21 +40,21 @@ IDBWrapper.prototype.open = function (closeAndReopen) {
     this._database.close();
   }
 
-  var p = Promise.defer();
-  this._connectionPromise = p.promise;
+  this._connectionPromise = new Promise(function (resolve, reject) {
+    var initialReq = indexedDB.open(this._databaseName, this._version);
 
-  var initialReq = indexedDB.open(this._databaseName, this._version);
+    initialReq.onsuccess = function (e) {
+      this._database = e.target.result;
+      this._defineStoreAccessors(this._database);
+      resolve(this);
+    }.bind(this);
 
-  initialReq.onsuccess = function (e) {
-    this._database = e.target.result;
-    this._defineStoreAccessors(this._database);
-    p.resolve(this);
-  }.bind(this);
+    initialReq.onerror = function (e) {
+      reject(new Error(e.target.error.message));
+    };
+    initialReq.onupgradeneeded = this._onUpgradeNeeded.bind(this);
+  }.bind(this));
 
-  initialReq.onerror = function (e) {
-    p.reject(new Error(e.target.error.message));
-  };
-  initialReq.onupgradeneeded = this._onUpgradeNeeded.bind(this);
 
   return this._connectionPromise;
 };
@@ -73,7 +73,7 @@ IDBWrapper.prototype.transaction = function (stores,callback) {
       throw new Error('Expecting an array of stores for the transaction');
     }
     transactionStores = stores.filter(function (store) {
-      return this._availableStores.indexOf(store) !== -1; 
+      return this._availableStores.indexOf(store) !== -1;
     }, this);
 
     if (!transactionStores.length) {
@@ -92,7 +92,7 @@ IDBWrapper.prototype.transaction = function (stores,callback) {
 };
 
 /**
- * Defines store accessors on the IDB instance 
+ * Defines store accessors on the IDB instance
  * @param  {IDBDatabase} db The database object
  */
 IDBWrapper.prototype._defineStoreAccessors = function (db) {
@@ -118,7 +118,6 @@ IDBWrapper.prototype._defineStoreAccessors = function (db) {
  * @param  {Object} e The event
  */
 IDBWrapper.prototype._onUpgradeNeeded = function (e) {
-  console.log(e);
   var db = e.target.result;
   var transaction = e.target.transaction;
   this.schema.runDDLStatements(db, transaction, e.oldVersion, e.newVersion);

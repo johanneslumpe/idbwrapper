@@ -78,14 +78,14 @@ QueryWrapper.prototype._execute = function () {
         // to guarantee that changed have been made, if we are
         // using separate transactions. actions made inside a single
         // transactions are consistent
-        var p = Promise.defer();
-        tx.oncomplete = function () {
-          p.resolve(result);
-        };
-        tx.onerror = function (e) {
-          p.reject(new Error(e.target.error.message));
-        };
-        return p.promise;
+        return new Promise(function (resolve, reject) {
+          tx.oncomplete = function () {
+            resolve(result);
+          };
+          tx.onerror = function (e) {
+            reject(new Error(e.target.error.message));
+          };
+        });
       });
     } else {
       tx = null;
@@ -173,23 +173,21 @@ QueryWrapper.prototype._setQueryTypeAndTransactionMode = function (type) {
 QueryWrapper.prototype._find = function (tx) {
   var storename = this._storename;
   var key       = this._findKey;
-  var p         = Promise.defer();
   var store     = tx.objectStore(storename);
+  return new Promise(function (resolve, reject) {
+    if (!store) {
+      reject(new Error('no such object store'));
+    }
+    // TODO proper key handling
+    if (key) {
+      this._findForKey(store, key, resolve, reject);
+    } else if(this._whereConditions.length) {
+      this._findWithConditions(store, resolve, reject);
+    } else {
+      reject(new Error('neither key nor conditions specified'));
+    }
 
-  if (!store) {
-    p.reject(new Error('no such object store'));
-  }
-  // TODO proper key handling
-  if (key) {
-    this._findForKey(store, key, p);
-  } else if(this._whereConditions.length) {
-    this._findWithConditions(store, p);
-  } else {
-    p.reject(new Error('neither key nor conditions specified'));
-  }
-
-  return p.promise;
-
+  }.bind(this));
 };
 
 /**
@@ -198,19 +196,19 @@ QueryWrapper.prototype._find = function (tx) {
  * @param  {Mixed} key            The key to search for
  * @param  {Object} promise       A deferred promise
  */
-QueryWrapper.prototype._findForKey = function (store, key, promise) {
+QueryWrapper.prototype._findForKey = function (store, key, resolve, reject) {
   var required  = this._findRequired;
   var req = store.get(key);
 
   req.onsuccess = function (e) {
     if (required && e.target.result === undefined) {
-      return promise.reject(new Error('No item found for key "' + key + '"'));
+      return reject(new Error('No item found for key "' + key + '"'));
     }
-    promise.resolve(e.target.result);
+    resolve(e.target.result);
   };
 
   req.onerror = function (e) {
-    promise.reject(e.target.error.message);
+    reject(e.target.error.message);
   };
 };
 
@@ -219,7 +217,7 @@ QueryWrapper.prototype._findForKey = function (store, key, promise) {
  * @param  {IDBObjectStore} store   The store to search in
  * @param  {Object} promise         A deferred promise
  */
-QueryWrapper.prototype._findWithConditions = function (store, promise) {
+QueryWrapper.prototype._findWithConditions = function (store, resolve, reject) {
   var indexCondition = getIndexCondition(this._whereConditions);
   // we only allow a single index condition for now
   indexCondition = indexCondition.length ? indexCondition[0] : false;
@@ -260,12 +258,12 @@ QueryWrapper.prototype._findWithConditions = function (store, promise) {
       console.log('no more data');
       // TODO: implement additional filtering and sorting here
       // should be done in a worker thread if possible
-      promise.resolve(results);
+      resolve(results);
     }
   };
 
   req.onerror = function (e) {
-    promise.reject(new Error(e.target.error.message));
+    reject(new Error(e.target.error.message));
   };
 };
 
@@ -294,30 +292,30 @@ var getFieldConditions = function (arr) {
 QueryWrapper.prototype._findAll = function (tx) {
   var storename = this._storename;
   var store     = tx.objectStore(storename);
-  var p = Promise.defer();
 
-  if (!store) {
-    p.reject(new Error('no such object store'));
-  }
-
-  var results = [];
-  var cursor = store.openCursor();
-
-  cursor.onsuccess = function (e) {
-    var cursor = e.target.result;
-    if (cursor) {
-      results.push(cursor.value);
-      cursor.continue();
-    } else {
-      p.resolve(results);
+  return new Promise(function (resolve, reject) {
+    if (!store) {
+      reject(new Error('no such object store'));
     }
-  };
 
-  cursor.onerror = function (e) {
-    p.reject(new Error(e.target.error.message));
-  };
+    var results = [];
+    var cursor = store.openCursor();
 
-  return p.promise;
+    cursor.onsuccess = function (e) {
+      var cursor = e.target.result;
+      if (cursor) {
+        results.push(cursor.value);
+        cursor.continue();
+      } else {
+        resolve(results);
+      }
+    };
+
+    cursor.onerror = function (e) {
+      reject(new Error(e.target.error.message));
+    };
+
+  });
 };
 
 /**
@@ -329,7 +327,6 @@ QueryWrapper.prototype._findAll = function (tx) {
 var _handleInsertUpsert = function (tx) {
   var storename     = this._storename;
   var insertedData  = [];
-  var p             = Promise.defer();
   var transaction   = tx;
   var key           = this['_' + this._queryType.toLowerCase() + 'Key'];
   var insertedItemCount = 0;
@@ -339,37 +336,37 @@ var _handleInsertUpsert = function (tx) {
                'put';
 
   var store = transaction.objectStore(storename);
+  return new Promise(function (resolve, reject) {
+    var storeMethod = function (item) {
+      var req = key ?
+                store[method](item, key) :
+                store[method](item);
 
-  var storeMethod = function (item) {
-    var req = key ?
-              store[method](item, key) :
-              store[method](item);
+      req.onsuccess = function (e) {
+        insertedData.push(item);
+        insertedItemCount++;
+        if (insertedItemCount === totalItemCount) {
+          resolve(insertedData);
+        }
+      };
 
-    req.onsuccess = function (e) {
-      insertedData.push(item);
-      insertedItemCount++;
-      if (insertedItemCount === totalItemCount) {
-        p.resolve(insertedData);
-      }
+      req.onerror = function (e) {
+        reject(new Error(e.target.error.message));
+      };
     };
 
-    req.onerror = function (e) {
-      p.reject(new Error(e.target.error.message));
-    };
-  };
+    // if a key is provided, then the value should be inserted
+    // as-is without trying to loop through it
+    // TODO: proper key check
+    if (key != null) {
+      totalItemCount = 1;
+      storeMethod(this._values);
+    } else {
+      totalItemCount = this._values.length;
+      this._values.forEach(storeMethod);
+    }
 
-  // if a key is provided, then the value should be inserted
-  // as-is without trying to loop through it
-  // TODO: proper key check
-  if (key != null) {
-    totalItemCount = 1;
-    storeMethod(this._values);
-  } else {
-    totalItemCount = this._values.length;
-    this._values.forEach(storeMethod);
-  }
-
-  return p.promise;
+  });
 };
 
 /**
@@ -393,24 +390,23 @@ QueryWrapper.prototype._upsert = function (tx) {
 
 var _handleRemoveClear = function (tx) {
   var storename = this._storename;
-  var p         = Promise.defer();
   var method    = this._queryType === QueryWrapper.queryTypes.REMOVE ?
                   'delete' :
                   'clear';
 
-  // we can just pass in the key to both methods, as it will
-  // just be ignored for clear
-  var req = tx.objectStore(storename)[method](this._deleteKey);
+  return new Promise(function (resolve, reject) {
+    // we can just pass in the key to both methods, as it will
+    // just be ignored for clear
+    var req = tx.objectStore(storename)[method](this._deleteKey);
 
-  req.onerror = function (e) {
-    p.reject(e.target.error.message);
-  };
+    req.onerror = function (e) {
+      reject(e.target.error.message);
+    };
 
-  req.onsuccess = function (e) {
-    p.resolve(true);
-  };
-
-  return p.promise;
+    req.onsuccess = function () {
+      resolve(true);
+    };
+  });
 };
 
 /**
@@ -439,29 +435,29 @@ QueryWrapper.prototype._clear = function (tx) {
 QueryWrapper.prototype._count = function (tx) {
   var storename = this._storename;
   var index = this._countIndex;
-  var p     = Promise.defer();
   var store = tx.objectStore(storename);
 
-  var req;
-  if (index) {
-    if (!store.indexNames.contains(index)) {
-      p.reject(new Error('The index "' + index + '" does not exist'));
+  return new Promise(function (resolve, reject) {
+    var req;
+    if (index) {
+      if (!store.indexNames.contains(index)) {
+        reject(new Error('The index "' + index + '" does not exist'));
+      }
+      req = store.index(index).count();
+
+    } else {
+      req = store.count();
     }
-    req = store.index(index).count();
 
-  } else {
-    req = store.count();
-  }
+    req.onsuccess = function (e) {
+      resolve(e.target.result);
+    };
 
-  req.onsuccess = function (e) {
-    p.resolve(e.target.result);
-  };
+    req.onerror = function (e) {
+      reject(e.target.error.message);
+    };
 
-  req.onerror = function (e) {
-    p.reject(e.target.error.message);
-  };
-
-  return p.promise;
+  });
 };
 
 /**
