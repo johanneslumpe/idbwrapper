@@ -22,7 +22,7 @@
     "files": "test/index.js",
     "browsers": [
       "iexplore/10..latest",
-      "opera/22..latest",
+      "opera/latest",
       "opera/next",
       "chrome/27..latest",
       "chrome/canary",
