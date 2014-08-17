@@ -52,8 +52,11 @@
   "predef": [
     "describe",
     "beforeEach",
+    "before",
+    "after",
     "it",
-    "IDBKeyRange"
+    "IDBKeyRange",
+    "indexedDB"
   ],
   "proto": false,
   "prototypejs": false,
