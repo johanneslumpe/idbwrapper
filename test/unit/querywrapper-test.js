@@ -10,12 +10,10 @@ describe('QueryWrapper', function () {
   var connectionPromise;
 
   beforeEach(function () {
-    QueryWrapper = require('../src/querywrapper');
-    WhereConditionWrapper = require('../src/whereconditionwrapper');
+    QueryWrapper = require('../../src/querywrapper');
+    WhereConditionWrapper = require('../../src/whereconditionwrapper');
     connectionPromise = Promise.resolve({});
     wrapper = new QueryWrapper('teststore', connectionPromise, false);
-
-    console.log(wrapper.constructor.prototype);
   });
 
   describe('constructor', function () {

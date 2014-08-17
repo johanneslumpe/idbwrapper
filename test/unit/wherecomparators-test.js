@@ -8,7 +8,7 @@ describe('WhereComparators', function () {
   var testObject;
 
   beforeEach(function () {
-    comparators = require('../src/wherecomparators');
+    comparators = require('../../src/wherecomparators');
     testObject = {};
   });
 

@@ -11,7 +11,7 @@ describe('WhereConditionWrapper', function () {
 
   beforeEach(function () {
     parentQueryObject = {};
-    WhereConditionWrapper = require('../src/whereconditionwrapper');
+    WhereConditionWrapper = require('../../src/whereconditionwrapper');
     wrapper = new WhereConditionWrapper(
       'test',
       WhereConditionWrapper.conditionTypes.INDEX,
