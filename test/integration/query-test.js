@@ -48,7 +48,7 @@ describe('Query', function () {
     describe('insert', function () {
 
       afterEach(function (done) {
-        var store = compareDB.transaction(['teststore'], 'readwrite').objectStore('teststore');
+        var store = idb._database.transaction(['teststore'], 'readwrite').objectStore('teststore');
         store.clear().onsuccess = function () {
           done();
         };
@@ -69,7 +69,7 @@ describe('Query', function () {
           expect(result).to.be.an('Array');
           expect(result[0]).to.equal(person);
 
-          var store = compareDB.transaction(['teststore'], 'readonly').objectStore('teststore');
+          var store = idb._database.transaction(['teststore'], 'readonly').objectStore('teststore');
           var countReq = store.count();
           countReq.onsuccess = function (e) {
             expect(e.target.result).to.equal(1);
@@ -107,7 +107,7 @@ describe('Query', function () {
           expect(result[0]).to.equal(person);
           expect(result[1]).to.equal(person2);
 
-          var store = compareDB.transaction(['teststore'], 'readonly').objectStore('teststore');
+          var store = idb._database.transaction(['teststore'], 'readonly').objectStore('teststore');
           var countReq = store.count();
           countReq.onsuccess = function (e) {
             var select1Done = false;
@@ -181,7 +181,7 @@ describe('Query', function () {
     describe('upsert', function () {
 
       afterEach(function (done) {
-        var store = compareDB.transaction(['teststore'], 'readwrite').objectStore('teststore');
+        var store = idb._database.transaction(['teststore'], 'readwrite').objectStore('teststore');
         store.clear().onsuccess = function () {
           done();
         };
@@ -202,7 +202,7 @@ describe('Query', function () {
           expect(result).to.be.an('Array');
           expect(result[0]).to.equal(person);
 
-          var store = compareDB.transaction(['teststore'], 'readonly').objectStore('teststore');
+          var store = idb._database.transaction(['teststore'], 'readonly').objectStore('teststore');
           var countReq = store.count();
           countReq.onsuccess = function (e) {
             expect(e.target.result).to.equal(1);
@@ -240,7 +240,7 @@ describe('Query', function () {
           expect(result[0]).to.equal(person);
           expect(result[1]).to.equal(person2);
 
-          var store = compareDB.transaction(['teststore'], 'readonly').objectStore('teststore');
+          var store = idb._database.transaction(['teststore'], 'readonly').objectStore('teststore');
           var countReq = store.count();
 
           countReq.onsuccess = function (e) {
@@ -272,9 +272,107 @@ describe('Query', function () {
 
     describe('remove', function () {
 
+      beforeEach(function (done) {
+        var person = {
+          id: 1,
+          firstname: 'John',
+          lastname: 'Doe',
+          employer: 'ACME',
+          age: '40'
+        };
+
+        var person2 = {
+          id: 2,
+          firstname: 'John',
+          lastname: 'Doe',
+          employer: 'ACME',
+          age: '40'
+        };
+
+        var tx = idb._database.transaction(['teststore'], 'readwrite');
+        var store = tx.objectStore('teststore');
+        var req = store.add(person);
+        var req2 = store.add(person2);
+
+        tx.oncomplete = function () {
+          done();
+        };
+      });
+
+      afterEach(function (done) {
+        var store = idb._database.transaction(['teststore'], 'readwrite').objectStore('teststore');
+        store.clear().onsuccess = function () {
+          done();
+        };
+      });
+
+      it('removes a record based on its key', function (done) {
+        idb.teststore.remove(2)
+        .then(function () {
+          var store = idb._database.transaction(['teststore'], 'readonly').objectStore('teststore');
+          var countReq = store.count();
+          countReq.onsuccess = function (e) {
+            expect(e.target.result).to.equal(1);
+
+            var select = store.get(2);
+            select.onsuccess = function (e) {
+              expect(e.target.result).to.equal(undefined);
+              done();
+            };
+          };
+        });
+      });
+
     });
 
     describe('clear', function () {
+
+      beforeEach(function (done) {
+        var person = {
+          id: 1,
+          firstname: 'John',
+          lastname: 'Doe',
+          employer: 'ACME',
+          age: '40'
+        };
+
+        var person2 = {
+          id: 2,
+          firstname: 'John',
+          lastname: 'Doe',
+          employer: 'ACME',
+          age: '40'
+        };
+
+        var tx = idb._database.transaction(['teststore'], 'readwrite');
+        var store = tx.objectStore('teststore');
+        var req = store.add(person);
+        var req2 = store.add(person2);
+
+        tx.oncomplete = function () {
+          done();
+        };
+      });
+
+      after(function (done) {
+        var store = idb._database.transaction(['teststore'], 'readwrite').objectStore('teststore');
+        store.clear().onsuccess = function () {
+          done();
+        };
+      });
+
+      it('removes all records from the store', function (done) {
+        idb.teststore
+        .clear()
+        .then(function () {
+          var store = idb._database.transaction(['teststore'], 'readonly').objectStore('teststore');
+          var countReq = store.count();
+          countReq.onsuccess = function (e) {
+            expect(e.target.result).to.equal(0);
+            done();
+          };
+        });
+      });
 
     });
 
@@ -282,11 +380,150 @@ describe('Query', function () {
 
   describe('Selecting', function () {
 
-    describe('count', function () {
+    describe('find', function () {
+
+      beforeEach(function (done) {
+        var person = {
+          id: 1,
+          firstname: 'John',
+          lastname: 'Doe',
+          employer: 'ACME',
+          age: '40'
+        };
+
+        var person2 = {
+          id: 2,
+          firstname: 'Jack',
+          lastname: 'Test',
+          employer: 'ZORG',
+          age: '42'
+        };
+
+        var tx = idb._database.transaction(['teststore'], 'readwrite');
+        var store = tx.objectStore('teststore');
+        var req = store.add(person);
+        var req2 = store.add(person2);
+        tx.oncomplete = function () {
+          done();
+        };
+
+      });
+
+      afterEach(function (done) {
+        var store = idb._database.transaction(['teststore'], 'readwrite').objectStore('teststore');
+        store.clear().onsuccess = function () {
+          done();
+        };
+      });
+
+      it('finds an item by key', function () {
+        return idb.teststore
+        .find(1)
+        .then(function (result) {
+          expect(result).to.eql({
+            id: 1,
+            firstname: 'John',
+            lastname: 'Doe',
+            employer: 'ACME',
+            age: '40'
+          });
+        });
+      });
+
+      it('throws an error if the item cannot be found an true is passed as 2nd parameter', function () {
+        return idb.teststore
+        .find(10, true)
+        .catch(function (e) {
+          expect(e).to.be.ok;
+        });
+      });
 
     });
 
-    describe('where condtions', function () {
+    describe('find with where conditions', function () {
+
+    });
+
+    describe('findAll', function () {});
+
+    describe('count', function () {
+
+      before(function (done) {
+        var person = {
+          id: 1,
+          firstname: 'John',
+          lastname: 'Doe',
+          employer: 'ACME',
+          age: '40'
+        };
+
+        var person2 = {
+          id: 2,
+          firstname: 'John',
+          lastname: 'Doe',
+          employer: 'ACME',
+          age: '40'
+        };
+
+        var person3 = {
+          id: 3,
+          firstname: 'John',
+          lastname: 'Doe',
+          employer: 'ACME',
+        };
+
+        var insert1Done = false;
+        var insert2Done = false;
+        var insert3Done = false;
+
+        var maybeDone = function () {
+          if (insert1Done && insert2Done && insert3Done) {
+            done();
+          }
+        };
+
+        var store = idb._database.transaction(['teststore'], 'readwrite').objectStore('teststore');
+        var req = store.add(person);
+        req.onsuccess = function () {
+          insert1Done = true;
+          maybeDone();
+        };
+
+        var req2 = store.add(person2);
+        req2.onsuccess = function () {
+          insert2Done = true;
+          maybeDone();
+        };
+
+        var req3 = store.add(person3);
+        req3.onsuccess = function () {
+          insert3Done = true;
+          maybeDone();
+        };
+      });
+
+      after(function (done) {
+        var store = idb._database.transaction(['teststore'], 'readwrite').objectStore('teststore');
+        store.clear().onsuccess = function () {
+          done();
+        };
+      });
+
+      it('counts all records in the store if no paramter is provided', function () {
+        return idb.teststore
+        .count()
+        .then(function (count) {
+          expect(count).to.equal(3);
+        });
+      });
+
+      it('counts the records of an index if a name is provided', function () {
+        return idb.teststore
+        .count('age')
+        .then(function (count) {
+          expect(count).to.equal(2);
+        });
+      });
 
     });
 
