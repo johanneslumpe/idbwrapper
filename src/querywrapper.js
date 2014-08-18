@@ -352,9 +352,7 @@ var _handleInsertUpsert = function (tx) {
 
       req.onerror = function (e) {
         // TODO: create error subclasses for these
-        var error = new Error(e.target.error.message);
-        error.name = e.target.error.name;
-        reject(error);
+        reject(e.target.error);
       };
     };
 
