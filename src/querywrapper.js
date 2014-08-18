@@ -366,7 +366,7 @@ var _handleInsertUpsert = function (tx) {
       this._values.forEach(storeMethod);
     }
 
-  });
+  }.bind(this));
 };
 
 /**
@@ -406,7 +406,7 @@ var _handleRemoveClear = function (tx) {
     req.onsuccess = function () {
       resolve(true);
     };
-  });
+  }.bind(this));
 };
 
 /**
