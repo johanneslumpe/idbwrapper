@@ -54,6 +54,7 @@
     "beforeEach",
     "before",
     "after",
+    "afterEach",
     "it",
     "IDBKeyRange",
     "indexedDB"
