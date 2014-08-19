@@ -4,14 +4,11 @@
 describe('Schema', function () {
   var expect = require('chai').expect;
   var TESTDB = 'idbwrapper_integration_test';
-  var TESTDB_VERSION = 3;
   var IDBWrapper = require('../../src/idbwrapper');
 
   var idb;
 
-  var compareDB;
-
-  before(function (done) {
+  before(function () {
     idb = IDBWrapper.initialize(TESTDB, 3);
     idb.schema.registerVersion(1, function () {
 
@@ -47,20 +44,11 @@ describe('Schema', function () {
       });
     });
 
-    return idb.open()
-    .then(function () {
-      var req = indexedDB.open(TESTDB, TESTDB_VERSION);
-
-      req.onsuccess = function (e) {
-        compareDB = e.target.result;
-        done();
-      };
-    });
+    return idb.open();
   });
 
   after(function (done) {
     idb._database.close();
-    compareDB.close();
 
     var req = indexedDB.deleteDatabase(TESTDB);
     req.onsuccess = function () {
@@ -69,7 +57,7 @@ describe('Schema', function () {
   });
 
   it('processes the create statements', function () {
-    var stores = compareDB.objectStoreNames;
+    var stores = idb._database.objectStoreNames;
 
     expect(stores.contains('teststore')).to.be.ok;
     expect(stores.contains('anotherteststore')).to.be.ok;
@@ -77,7 +65,7 @@ describe('Schema', function () {
   });
 
   it('processes the alter statements', function () {
-      var tx = compareDB.transaction(['storetoalter'], 'readonly');
+      var tx = idb._database.transaction(['storetoalter'], 'readonly');
 
       var storetoalter = tx.objectStore('storetoalter');
       expect(storetoalter.indexNames.length).to.equal(1);
@@ -85,13 +73,13 @@ describe('Schema', function () {
   });
 
   it('processes the drop statements', function () {
-    var stores = compareDB.objectStoreNames;
+    var stores = idb._database.objectStoreNames;
 
     expect(stores.contains('storetodrop')).to.not.be.ok;
   });
 
   it('adds the specified indexes to the tables', function () {
-    var tx = compareDB.transaction(['teststore', 'anotherteststore', 'autoincrementingstore'], 'readonly');
+    var tx = idb._database.transaction(['teststore', 'anotherteststore', 'autoincrementingstore'], 'readonly');
 
     var teststore = tx.objectStore('teststore');
     expect(teststore.indexNames.contains('someindex')).to.be.ok;
@@ -105,7 +93,7 @@ describe('Schema', function () {
   });
 
   it('properly forwards the passed in config', function () {
-    var tx = compareDB.transaction(['teststore', 'anotherteststore', 'autoincrementingstore'], 'readonly');
+    var tx = idb._database.transaction(['teststore', 'anotherteststore', 'autoincrementingstore'], 'readonly');
 
     var teststore = tx.objectStore('teststore');
     expect(teststore.keyPath).to.equal('mykeypath');

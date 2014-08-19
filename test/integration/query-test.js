@@ -5,13 +5,11 @@
 describe('Query', function () {
   var expect = require('chai').expect;
   var TESTDB = 'idbwrapper_integration_test';
-  var TESTDB_VERSION = 1;
   var IDBWrapper = require('../../src/idbwrapper');
 
   var idb;
-  var compareDB;
 
-  before(function (done) {
+  before(function () {
     idb = IDBWrapper.initialize(TESTDB, 1);
     idb.schema.registerVersion(1, function () {
 
@@ -22,20 +20,11 @@ describe('Query', function () {
       }, {keyPath: 'id'});
     });
 
-    return idb.open()
-    .then(function () {
-      var req = indexedDB.open(TESTDB, TESTDB_VERSION);
-
-      req.onsuccess = function (e) {
-        compareDB = e.target.result;
-        done();
-      };
-    });
+    return idb.open();
   });
 
   after(function (done) {
     idb._database.close();
-    compareDB.close();
 
     var req = indexedDB.deleteDatabase(TESTDB);
     req.onsuccess = function () {
