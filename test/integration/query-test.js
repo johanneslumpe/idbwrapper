@@ -16,7 +16,7 @@ describe('Query', function () {
     idb.schema.registerVersion(1, function () {
 
       this.createTable('teststore', function () {
-        this.addIndex('firstname');
+        this.addIndex('lastname');
         this.addIndex('employer');
         this.addIndex('age');
       }, {keyPath: 'id'});
@@ -291,8 +291,8 @@ describe('Query', function () {
 
         var tx = idb._database.transaction(['teststore'], 'readwrite');
         var store = tx.objectStore('teststore');
-        var req = store.add(person);
-        var req2 = store.add(person2);
+        store.add(person);
+        store.add(person2);
 
         tx.oncomplete = function () {
           done();
@@ -346,8 +346,8 @@ describe('Query', function () {
 
         var tx = idb._database.transaction(['teststore'], 'readwrite');
         var store = tx.objectStore('teststore');
-        var req = store.add(person);
-        var req2 = store.add(person2);
+        store.add(person);
+        store.add(person2);
 
         tx.oncomplete = function () {
           done();
@@ -380,53 +380,69 @@ describe('Query', function () {
 
   describe('Selecting', function () {
 
+    var persons = [
+      {
+        id: 1,
+        firstname: 'John',
+        lastname: 'Doe',
+        employer: 'ACME',
+        age: 25
+      },{
+        id: 2,
+        firstname: 'Jean Baptiste Emanuel',
+        lastname: 'Zorg',
+        employer: 'ZORG Enterprises'
+      },{
+        id: 3,
+        firstname: 'Jazz',
+        lastname: 'Jackrabbit',
+        employer: 'Epic',
+        age: 20
+      },{
+        id: 4,
+        firstname: 'William',
+        lastname: 'Blazkowicz',
+        employer: 'OSA',
+        age: 31
+      },{
+        id: 5,
+        firstname: 'Jack',
+        lastname: 'Aaaaaa',
+        employer: 'ACME',
+        age: 30
+      },
+    ];
+
+    beforeEach(function (done) {
+      var tx = idb._database.transaction(['teststore'], 'readwrite');
+      var store = tx.objectStore('teststore');
+      store.add(persons[0]);
+      store.add(persons[1]);
+      store.add(persons[2]);
+      store.add(persons[3]);
+      store.add(persons[4]);
+      tx.oncomplete = function () {
+        done();
+      };
+
+    });
+
+    afterEach(function (done) {
+      idb._database.transaction(['teststore'], 'readwrite')
+      .objectStore('teststore')
+      .clear()
+      .onsuccess = function () {
+        done();
+      };
+    });
+
     describe('find', function () {
-
-      beforeEach(function (done) {
-        var person = {
-          id: 1,
-          firstname: 'John',
-          lastname: 'Doe',
-          employer: 'ACME',
-          age: '40'
-        };
-
-        var person2 = {
-          id: 2,
-          firstname: 'Jack',
-          lastname: 'Test',
-          employer: 'ZORG',
-          age: '42'
-        };
-
-        var tx = idb._database.transaction(['teststore'], 'readwrite');
-        var store = tx.objectStore('teststore');
-        var req = store.add(person);
-        var req2 = store.add(person2);
-        tx.oncomplete = function () {
-          done();
-        };
-
-      });
-
-      afterEach(function (done) {
-        var store = idb._database.transaction(['teststore'], 'readwrite').objectStore('teststore');
-        store.clear().onsuccess = function () {
-          done();
-        };
-      });
 
       it('finds an item by key', function () {
         return idb.teststore
         .find(1)
         .then(function (result) {
-          expect(result).to.eql({
-            id: 1,
-            firstname: 'John',
-            lastname: 'Doe',
-            employer: 'ACME',
-            age: '40'
-          });
+          expect(result).to.eql(persons[0]);
         });
       });
 
@@ -442,78 +458,85 @@ describe('Query', function () {
 
     describe('find with where conditions', function () {
 
+      it('finds items using a where condition on an index', function () {
+        return idb.teststore
+        .find()
+        .where.index('age').greaterThan(22)
+        .then(function (result) {
+          expect(result.length).to.equal(3);
+          expect(result[0]).to.eql(persons[0]);
+          expect(result[1]).to.eql(persons[4]);
+          expect(result[2]).to.eql(persons[3]);
+        });
+
+      });
+
+      it('finds items using a where condition on a field', function () {
+        return idb.teststore
+        .find()
+        .where.field('firstname').equals('Jazz')
+        .then(function (result) {
+          expect(result.length).to.equal(1);
+          expect(result[0]).to.eql(persons[2]);
+        });
+      });
+
+      it('finds items using multiple where conditions on fields', function () {
+        return idb.teststore
+        .find()
+        .where.field('age').greaterThan(26)
+        .where.field('employer').equals('ACME')
+        .then(function (result) {
+          expect(result.length).to.equal(1);
+          expect(result[0]).to.eql(persons[4]);
+        });
+
+      });
+
+      it('finds items using a where condition on an index and on a field', function () {
+        return idb.teststore
+        .find()
+        .where.index('lastname').greaterThan('C')
+        .where.field('employer').equals('ACME')
+        .then(function (result) {
+          expect(result.length).to.equal(1);
+          expect(result[0]).to.eql(persons[0]);
+        });
+      });
+
+      it('finds items using a where condition on an index and multiple conditions on fields', function () {
+        return idb.teststore
+        .find()
+        .where.index('lastname').lessThan('C')
+        .where.field('age').greaterThan(10)
+        .where.field('employer').equals('ACME')
+        .then(function (result) {
+          expect(result.length).to.equal(1);
+          expect(result[0]).to.eql(persons[4]);
+        });
+      });
+
     });
 
-    describe('findAll', function () {});
+    describe('findAll', function () {
+
+      it('returns all records in the store', function () {
+        return idb.teststore
+        .findAll()
+        .then(function (results) {
+          expect(results.length).to.equal(persons.length);
+        });
+      });
+
+    });
 
     describe('count', function () {
-
-      before(function (done) {
-        var person = {
-          id: 1,
-          firstname: 'John',
-          lastname: 'Doe',
-          employer: 'ACME',
-          age: '40'
-        };
-
-        var person2 = {
-          id: 2,
-          firstname: 'John',
-          lastname: 'Doe',
-          employer: 'ACME',
-          age: '40'
-        };
-
-        var person3 = {
-          id: 3,
-          firstname: 'John',
-          lastname: 'Doe',
-          employer: 'ACME',
-        };
-
-        var insert1Done = false;
-        var insert2Done = false;
-        var insert3Done = false;
-
-        var maybeDone = function () {
-          if (insert1Done && insert2Done && insert3Done) {
-            done();
-          }
-        };
-
-        var store = idb._database.transaction(['teststore'], 'readwrite').objectStore('teststore');
-        var req = store.add(person);
-        req.onsuccess = function () {
-          insert1Done = true;
-          maybeDone();
-        };
-
-        var req2 = store.add(person2);
-        req2.onsuccess = function () {
-          insert2Done = true;
-          maybeDone();
-        };
-
-        var req3 = store.add(person3);
-        req3.onsuccess = function () {
-          insert3Done = true;
-          maybeDone();
-        };
-      });
-
-      after(function (done) {
-        var store = idb._database.transaction(['teststore'], 'readwrite').objectStore('teststore');
-        store.clear().onsuccess = function () {
-          done();
-        };
-      });
 
       it('counts all records in the store if no paramter is provided', function () {
         return idb.teststore
         .count()
         .then(function (count) {
-          expect(count).to.equal(3);
+          expect(count).to.equal(persons.length);
         });
       });
 
@@ -521,7 +544,7 @@ describe('Query', function () {
         return idb.teststore
         .count('age')
         .then(function (count) {
-          expect(count).to.equal(2);
+          expect(count).to.equal(4);
         });
       });
 
