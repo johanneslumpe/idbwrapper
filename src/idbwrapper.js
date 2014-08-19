@@ -194,6 +194,11 @@ IDBWrapper.prototype.import = function (data) {
   }
 
   var stores = Object.keys(data);
+  if (!stores.every(function (store) {
+    return this._availableStores.indexOf(store) !== -1;
+  }.bind(this))) {
+    return Promise.reject(new Error('Import data contains data for non-existing stores'));
+  }
   var upserts = stores.map(function (store) {
     return this[store].upsert(data[store]);
   }.bind(this));
