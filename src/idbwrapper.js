@@ -159,6 +159,49 @@ IDBWrapper.prototype.findByKey = function (collection, key, required) {
 };
 
 /**
+ * Exports the selected stores as a nested javascript object
+ * @param  {Array} stores The stores to export, optional
+ * @return {Object}       A promise which resolves with a javascript object holding the exported data
+ */
+IDBWrapper.prototype.export = function (stores) {
+  stores = stores || this._availableStores;
+  var selects = stores.map(function (store) {
+    return this[store].findAll();
+  }.bind(this));
+
+  return Promise
+  .all(selects)
+  .then(function (results) {
+    return stores.reduce(function (finalResult, store, index) {
+      finalResult[store] = results[index];
+      return finalResult;
+    }, {});
+  });
+};
+
+/**
+ * Imports data from a javascript object or json string
+ * @param  {Mixed} data A javascript object or JSON string
+ * @return {Object}     A promise
+ */
+IDBWrapper.prototype.import = function (data) {
+  if (typeof data === 'string') {
+    try {
+      data = JSON.parse(data);
+    } catch (e) {
+      return Promise.reject(e);
+    }
+  }
+
+  var stores = Object.keys(data);
+  var upserts = stores.map(function (store) {
+    return this[store].upsert(data[store]);
+  }.bind(this));
+
+  return Promise.all(upserts);
+};
+
+/**
  * Convenience method to construct a new instance
  * @param  {String} database  The database to open
  * @param  {Integer} version  The database version
