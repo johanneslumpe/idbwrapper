@@ -2,6 +2,7 @@
 /* global IDBKeyRange: true, Promise: true */
 'use strict';
 
+var removeListeners = require('./helpers/removelisteners');
 var WhereConditionWrapper = require('./whereconditionwrapper');
 
 /**
@@ -79,16 +80,16 @@ QueryWrapper.prototype._execute = function () {
         // using separate transactions. actions made inside a single
         // transactions are consistent
         return new Promise(function (resolve, reject) {
-          tx.oncomplete = function () {
+          tx.oncomplete = function (e) {
             resolve(result);
+            removeListeners(e.target);
           };
           tx.onerror = function (e) {
             reject(new Error(e.target.error.message));
+            removeListeners(e.target);
           };
         });
       });
-    } else {
-      tx = null;
     }
 
     return returnPromise;
@@ -205,10 +206,12 @@ QueryWrapper.prototype._findForKey = function (store, key, resolve, reject) {
       return reject(new Error('No item found for key "' + key + '"'));
     }
     resolve(e.target.result);
+    removeListeners(e.target);
   };
 
   req.onerror = function (e) {
     reject(e.target.error.message);
+    removeListeners(e.target);
   };
 };
 
@@ -259,11 +262,13 @@ QueryWrapper.prototype._findWithConditions = function (store, resolve, reject) {
       // TODO: implement additional filtering and sorting here
       // should be done in a worker thread if possible
       resolve(results);
+      removeListeners(e.target);
     }
   };
 
   req.onerror = function (e) {
     reject(new Error(e.target.error.message));
+    removeListeners(e.target);
   };
 };
 
@@ -299,20 +304,22 @@ QueryWrapper.prototype._findAll = function (tx) {
     }
 
     var results = [];
-    var cursor = store.openCursor();
+    var cursorreq = store.openCursor();
 
-    cursor.onsuccess = function (e) {
+    cursorreq.onsuccess = function (e) {
       var cursor = e.target.result;
       if (cursor) {
         results.push(cursor.value);
         cursor.continue();
       } else {
         resolve(results);
+        removeListeners(e.target);
       }
     };
 
-    cursor.onerror = function (e) {
+    cursorreq.onerror = function (e) {
       reject(new Error(e.target.error.message));
+      removeListeners(e.target);
     };
 
   });
@@ -347,12 +354,14 @@ var _handleInsertUpsert = function (tx) {
         insertedItemCount++;
         if (insertedItemCount === totalItemCount) {
           resolve(insertedData);
+          removeListeners(e.target);
         }
       };
 
       req.onerror = function (e) {
         // TODO: create error subclasses for these
         reject(e.target.error);
+        removeListeners(e.target);
       };
     };
 
@@ -402,10 +411,12 @@ var _handleRemoveClear = function (tx) {
 
     req.onerror = function (e) {
       reject(e.target.error.message);
+      removeListeners(e.target);
     };
 
-    req.onsuccess = function () {
+    req.onsuccess = function (e) {
       resolve(true);
+      removeListeners(e.target);
     };
   }.bind(this));
 };
@@ -452,10 +463,12 @@ QueryWrapper.prototype._count = function (tx) {
 
     req.onsuccess = function (e) {
       resolve(e.target.result);
+      removeListeners(e.target);
     };
 
     req.onerror = function (e) {
       reject(e.target.error.message);
+      removeListeners(e.target);
     };
 
   });

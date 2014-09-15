@@ -5,7 +5,7 @@
 var Schema = require('./schema/schema');
 var QueryWrapper = require('./querywrapper');
 var TransactionWrapper = require('./transactionwrapper');
-
+var removeListeners = require('./helpers/removelisteners');
 /**
  * Constructor for IDB-wrapper
  * @param {String} database  The database to open
@@ -47,10 +47,12 @@ IDBWrapper.prototype.open = function (closeAndReopen) {
       this._database = e.target.result;
       this._defineStoreAccessors(this._database);
       resolve(this);
+      removeListeners(e.target);
     }.bind(this);
 
     initialReq.onerror = function (e) {
       reject(new Error(e.target.error.message));
+      removeListeners(e.target);
     };
     initialReq.onupgradeneeded = this._onUpgradeNeeded.bind(this);
   }.bind(this));
@@ -199,6 +201,8 @@ IDBWrapper.prototype.import = function (data) {
   }.bind(this))) {
     return Promise.reject(new Error('Import data contains data for non-existing stores'));
   }
+  // TODO: handle all inserts in a single transaction
+  // to prevent partial imports
   var upserts = stores.map(function (store) {
     return this[store].upsert(data[store]);
   }.bind(this));
