@@ -374,7 +374,6 @@ var _handleInsertUpsert = function (tx) {
                 store[method](item);
 
       req.onsuccess = function (e) {
-        console.log('SUCCESS');
         insertedData.push(item);
         insertedItemCount++;
         if (insertedItemCount === totalItemCount) {
