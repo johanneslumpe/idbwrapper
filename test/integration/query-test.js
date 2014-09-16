@@ -13,7 +13,7 @@ describe('Query', function () {
     idb = IDBWrapper.initialize(TESTDB, 1);
     idb.schema.registerVersion(1, function () {
 
-      this.createTable('teststore', function () {
+      this.createStore('teststore', function () {
         this.addIndex('lastname');
         this.addIndex('employer');
         this.addIndex('age');

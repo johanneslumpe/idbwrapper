@@ -32,14 +32,13 @@ Schema.prototype.registerVersion = function (version, callback) {
  * @param  {IDBTransaction} transaction The version change event transaction
  */
 Schema.prototype.runDDLStatements = function (db, transaction, oldVersion, newVersion) {
-  var table;
   var stores = {};
 
   var startingVersion = oldVersion + 1;
   var finalVersion = newVersion;
-  
-  var maybeCallCallback = function (table, wrapper) {
-    var cb = table.cb;
+
+  var maybeCallCallback = function (store, wrapper) {
+    var cb = store.cb;
     if (typeof cb === 'function') {
       cb.call(wrapper);
     }
@@ -50,38 +49,38 @@ Schema.prototype.runDDLStatements = function (db, transaction, oldVersion, newVe
     var version = this._versions[i];
     if (!version) { continue; }
     console.log('Running migration for version '  + i);
-    
-    // process create statements
-    version._create.forEach(function (table) {
-      var tableName = table.tableName;
 
-      if (existingStores.contains(tableName)) {
-        console.warn('Store "' + tableName + '" already exists');
-        stores[tableName] = transaction.objectStore(tableName);
+    // process create statements
+    version._create.forEach(function (store) {
+      var storeName = store.storeName;
+
+      if (existingStores.contains(storeName)) {
+        console.warn('Store "' + storeName + '" already exists');
+        stores[storeName] = transaction.objectStore(storeName);
         return;
       }
 
-      var config = table.config || {};
+      var config = store.config || {};
       // create store
-      var store = stores[tableName] = db.createObjectStore(tableName, config);
+      var newStore = stores[storeName] = db.createObjectStore(storeName, config);
 
       // execute callback
-      var wrapper = new CreateStatementWrapper(store);
-      maybeCallCallback(table, wrapper);
+      var wrapper = new CreateStatementWrapper(newStore);
+      maybeCallCallback(store, wrapper);
     });
 
     // process alter statements
-    version._alter.forEach(function (table) {
-      var wrapper = new UpdateStatementWrapper(stores[table.tableName]);
-      maybeCallCallback(table, wrapper);
+    version._alter.forEach(function (store) {
+      var wrapper = new UpdateStatementWrapper(stores[store.storeName]);
+      maybeCallCallback(store, wrapper);
     });
 
     // process drop statements
-    version._drop.forEach(function (table) {
+    version._drop.forEach(function (store) {
       var wrapper = new DropStatementWrapper(db);
-      maybeCallCallback(table, wrapper);
+      maybeCallCallback(store, wrapper);
     });
-  }  
+  }
 };
 
 module.exports = Schema;

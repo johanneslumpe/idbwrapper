@@ -12,7 +12,7 @@ var DropStatementWrapper = function (db) {
  * Deletes the passed in store
  * @param  {String} store The store to delete
  */
-DropStatementWrapper.prototype.dropTable = function (store) {
+DropStatementWrapper.prototype.dropStore = function (store) {
   try {
     this._db.deleteObjectStore(store);
   } catch (e) {

@@ -12,35 +12,35 @@ describe('Schema', function () {
     idb = IDBWrapper.initialize(TESTDB, 3);
     idb.schema.registerVersion(1, function () {
 
-      this.createTable('teststore', function () {
+      this.createStore('teststore', function () {
         this.addIndex('someindex');
         this.addIndex('a.nested.index');
       }, {keyPath: 'mykeypath'});
 
-      this.createTable('anotherteststore', function () {
+      this.createStore('anotherteststore', function () {
         this.addIndex('anotherindex');
       });
 
-      this.createTable('autoincrementingstore', function () {
+      this.createStore('autoincrementingstore', function () {
 
       }, {autoIncrement: true});
 
-      this.createTable('storetoalter', function () {
+      this.createStore('storetoalter', function () {
         this.addIndex('test');
       });
-      this.createTable('storetodrop');
+      this.createStore('storetodrop');
     });
 
     idb.schema.registerVersion(2, function () {
-      this.alterTable('storetoalter', function () {
+      this.alterStore('storetoalter', function () {
         this.deleteIndex('test');
         this.addIndex('newindex');
       });
     });
 
     idb._schema.registerVersion(3, function () {
-      this.dropTable('storetodrop', function () {
-        this.dropTable('storetodrop');
+      this.dropStore('storetodrop', function () {
+        this.dropStore('storetodrop');
       });
     });
 
@@ -78,7 +78,7 @@ describe('Schema', function () {
     expect(stores.contains('storetodrop')).to.not.be.ok;
   });
 
-  it('adds the specified indexes to the tables', function () {
+  it('adds the specified indexes to the stores', function () {
     var tx = idb._database.transaction(['teststore', 'anotherteststore', 'autoincrementingstore'], 'readonly');
 
     var teststore = tx.objectStore('teststore');

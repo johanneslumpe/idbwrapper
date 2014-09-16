@@ -3,9 +3,8 @@
 
 /**
  * Wrapper which contains DDL statements for a schema version
- * @param {Function} callback The callback containing the changes
  */
-var SchemaVersion = function (callback) {
+var SchemaVersion = function () {
   this._create = [];
   this._alter = [];
   this._drop = [];
@@ -14,9 +13,9 @@ var SchemaVersion = function (callback) {
 // create DDL methods on the prototype
 var methods = ['create', 'alter', 'drop'];
 methods.forEach(function (cmd) {
-  SchemaVersion.prototype[cmd + 'Table'] = function (tableName, callback, storeConfig) {
+  SchemaVersion.prototype[cmd + 'Store'] = function (storeName, callback, storeConfig) {
     this['_' + cmd].push({
-      tableName: tableName,
+      storeName: storeName,
       config: storeConfig,
       cb: callback
     });

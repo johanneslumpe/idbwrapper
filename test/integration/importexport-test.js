@@ -13,8 +13,8 @@ describe('Data import/export', function () {
     idb = IDBWrapper.initialize(TESTDB, 1);
     idb.schema.registerVersion(1, function () {
 
-      this.createTable('teststore', function () {}, {keyPath: 'id'});
-      this.createTable('anotherteststore', function () {}, {keyPath: 'id'});
+      this.createStore('teststore', function () {}, {keyPath: 'id'});
+      this.createStore('anotherteststore', function () {}, {keyPath: 'id'});
     });
 
     return idb.open();

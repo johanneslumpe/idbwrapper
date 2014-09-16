@@ -307,7 +307,7 @@ var getFieldConditions = function (arr) {
 };
 
 /**
- * Finds all items in collection/store/table
+ * Finds all items in store
  * @param  {IDBTransaction} tx A Transaction
  * @return {Object}            A promise
  */

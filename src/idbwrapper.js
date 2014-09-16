@@ -127,36 +127,36 @@ IDBWrapper.prototype._onUpgradeNeeded = function (e) {
 };
 
 /**
- * Adds data to the table/collection/store
- * @param  {String} collection The collection name
+ * Adds data to the store
+ * @param  {String} store The store name
  * @param  {Array} values      An array of values to insert
  * @return {Object}            A promise
  */
-IDBWrapper.prototype.insert = function (collection, values) {
-  var q = new QueryWrapper(collection, this._connectionPromise);
+IDBWrapper.prototype.insert = function (store, values) {
+  var q = new QueryWrapper(store, this._connectionPromise);
   return q.insert(values);
 };
 
 /**
  * Either inserts or updates the passed in values
- * @param  {String} collection The collection name
+ * @param  {String} store The store name
  * @param  {Array} values      And array of values to upsert
  * @return {Object}            A promise
  */
-IDBWrapper.prototype.upsert = function (collection, values) {
-  var q = new QueryWrapper(collection, this._connectionPromise);
+IDBWrapper.prototype.upsert = function (store, values) {
+  var q = new QueryWrapper(store, this._connectionPromise);
   return q.upsert(values);
 };
 
 /**
- * Find a single value from a collection by key
- * @param  {String} collection The collection name
+ * Find a single value from a store by key
+ * @param  {String} store The store name
  * @param  {Mixed} key         The key value
  * @param  {Boolean} required  Whether the promise will be rejected for an empty result
  * @return {Promise}           A promise
  */
-IDBWrapper.prototype.findByKey = function (collection, key, required) {
-  var q = new QueryWrapper(collection, this._connectionPromise);
+IDBWrapper.prototype.findByKey = function (store, key, required) {
+  var q = new QueryWrapper(store, this._connectionPromise);
   return q.find(key, required);
 };
 
