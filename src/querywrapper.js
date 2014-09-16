@@ -17,7 +17,7 @@ var QueryWrapper = function (store, owningInstanceConnectionPromise, insideTrans
   this._whereConditions = [];
 
   this._queryType = null;
-  this._tranctionMode = QueryWrapper.transactionMode.READONLY;
+  this._transactionMode = QueryWrapper.transactionMode.READONLY;
   this._isInsideTransaction = !!insideTransaction;
 };
 
@@ -65,32 +65,50 @@ QueryWrapper.prototype._execute = function () {
   }
 
   if (method) {
-    var tx;
-    var returnPromise = p.then(function (idb) {
-      tx = idb._database.transaction([this._storename], this._tranctionMode);
-      return tx;
-    }.bind(this))
-    .then(method);
+    var txPromise;
+    var txResolve;
+    var txReject;
 
-    if (!this._isInsideTransaction) {
-      returnPromise = returnPromise.then(function (result) {
-        // we have to wait for the transaction to be completed
-        // before the next chained statement can happen, in order
-        // to guarantee that changed have been made, if we are
-        // using separate transactions. actions made inside a single
-        // transactions are consistent
-        return new Promise(function (resolve, reject) {
-          tx.oncomplete = function (e) {
-            resolve(result);
-            removeListeners(e.target);
-          };
-          tx.onerror = function (e) {
-            reject(new Error(e.target.error.message));
-            removeListeners(e.target);
-          };
+    var returnPromise = p
+    .then(function (idb) {
+      var tx = idb._database
+      .transaction([this._storename], this._transactionMode);
+
+      // if we are not inside a transaction, we can have to attach
+      // listeners to the transaction and return a new promise to
+      // guarantee that the transaction is fully completed before
+      // any further chained requests are executed
+      if (!this._isInsideTransaction) {
+        txPromise = new Promise(function (resolve, reject) {
+          txResolve = resolve;
+          txReject = reject;
         });
-      });
-    }
+
+        tx.oncomplete = function (e) {
+          txResolve();
+          removeListeners(e.target);
+        };
+
+        tx.onerror = function (e) {
+          txReject(new Error(e.target.error.message));
+          removeListeners(e.target);
+        };
+      }
+
+      var methodPromise = method(tx);
+
+      if (txPromise) {
+        return methodPromise
+        .then(function (result) {
+          return txPromise
+          .then(function () {
+            return result;
+          });
+        });
+      }
+
+      return methodPromise;
+    }.bind(this));
 
     return returnPromise;
   }
@@ -113,7 +131,6 @@ var createWhereConditionWrapperAndPushToStack = function (name, type, queryWrapp
   queryWrapper._whereConditions.push(condition);
   return condition;
 };
-
 
 Object.defineProperty(QueryWrapper.prototype, 'where', {
   get: function () {
@@ -161,7 +178,7 @@ QueryWrapper.prototype._setQueryTypeAndTransactionMode = function (type) {
       transactionMode = QueryWrapper.transactionMode.READWRITE;
       break;
   }
-  this._tranctionMode = transactionMode;
+  this._transactionMode = transactionMode;
 
   this._queryType = type;
 };
@@ -334,7 +351,6 @@ QueryWrapper.prototype._findAll = function (tx) {
 var _handleInsertUpsert = function (tx) {
   var storename     = this._storename;
   var insertedData  = [];
-  var transaction   = tx;
   var key           = this['_' + this._queryType.toLowerCase() + 'Key'];
   var insertedItemCount = 0;
   var totalItemCount;
@@ -342,14 +358,23 @@ var _handleInsertUpsert = function (tx) {
                'add' :
                'put';
 
-  var store = transaction.objectStore(storename);
+  var store = tx.objectStore(storename);
   return new Promise(function (resolve, reject) {
-    var storeMethod = function (item) {
+    // if a key is provided, then the value should be inserted
+    // as-is without trying to loop through it
+    // TODO: proper key check
+    if (key != null) {
+      this._values = [this._values];
+    }
+
+    totalItemCount = this._values.length;
+    this._values.forEach(function (item) {
       var req = key ?
                 store[method](item, key) :
                 store[method](item);
 
       req.onsuccess = function (e) {
+        console.log('SUCCESS');
         insertedData.push(item);
         insertedItemCount++;
         if (insertedItemCount === totalItemCount) {
@@ -363,19 +388,7 @@ var _handleInsertUpsert = function (tx) {
         reject(e.target.error);
         removeListeners(e.target);
       };
-    };
-
-    // if a key is provided, then the value should be inserted
-    // as-is without trying to loop through it
-    // TODO: proper key check
-    if (key != null) {
-      totalItemCount = 1;
-      storeMethod(this._values);
-    } else {
-      totalItemCount = this._values.length;
-      this._values.forEach(storeMethod);
-    }
-
+    });
   }.bind(this));
 };
 

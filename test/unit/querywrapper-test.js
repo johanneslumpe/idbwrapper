@@ -48,8 +48,8 @@ describe('QueryWrapper', function () {
       expect(wrapper._queryType).to.equal(null);
     });
 
-    it('initializes `_tranctionMode` as read-only', function () {
-      expect(wrapper._tranctionMode).to.equal(QueryWrapper.transactionMode.READONLY);
+    it('initializes `_transactionMode` as read-only', function () {
+      expect(wrapper._transactionMode).to.equal(QueryWrapper.transactionMode.READONLY);
     });
 
   });
