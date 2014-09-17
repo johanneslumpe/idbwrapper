@@ -9,9 +9,9 @@ var WhereConditionWrapper = require('./whereconditionwrapper');
  * Stores all query options and compiles a query
  * @param {String} store The store to query
  */
-var QueryWrapper = function (store, owningInstanceConnectionPromise, insideTransaction) {
+var QueryWrapper = function (store, connectionPromise, insideTransaction) {
   this._storename = store;
-  this._connectionPromise = owningInstanceConnectionPromise;
+  this._connectionPromise = connectionPromise;
 
   this._findKey = null;
   this._whereConditions = [];
@@ -113,11 +113,11 @@ QueryWrapper.prototype._execute = function () {
     return returnPromise;
   }
 
-  throw new Error('No valid method has been selected, this query will not produce anything');
+  throw new Error('No valid method selected, query can not produce anything');
 };
 
 // add then and catch methods to the prototype,
-// so they can be used to kick of execution of
+// so they can be used to kick off execution of
 // the query
 ['then', 'catch'].forEach(function (method) {
   QueryWrapper.prototype[method] = function () {
@@ -126,7 +126,7 @@ QueryWrapper.prototype._execute = function () {
   };
 });
 
-var createWhereConditionWrapperAndPushToStack = function (name, type, queryWrapper) {
+var createConditionWrapperAndPushToStack = function (name, type, queryWrapper) {
   var condition = new WhereConditionWrapper(name, type, queryWrapper);
   queryWrapper._whereConditions.push(condition);
   return condition;
@@ -137,7 +137,7 @@ Object.defineProperty(QueryWrapper.prototype, 'where', {
     var queryWrapper = this;
     return {
       index: function (indexName) {
-        return createWhereConditionWrapperAndPushToStack(
+        return createConditionWrapperAndPushToStack(
           indexName,
           WhereConditionWrapper.conditionTypes.INDEX,
           queryWrapper
@@ -145,7 +145,7 @@ Object.defineProperty(QueryWrapper.prototype, 'where', {
       },
 
       field: function (fieldname) {
-        return createWhereConditionWrapperAndPushToStack(
+        return createConditionWrapperAndPushToStack(
           fieldname,
           WhereConditionWrapper.conditionTypes.FIELD,
           queryWrapper
@@ -165,7 +165,8 @@ QueryWrapper.prototype._setQueryTypeAndTransactionMode = function (type) {
   }
 
   if (this._queryType) {
-    console.warn('query type was already set to "' + this._queryType + '". Did you really want to change it?');
+    console.warn('query type was already set to "' +
+    this._queryType + '". Did you really want to change it?');
   }
 
   // update transaction mode based on the action
@@ -498,7 +499,7 @@ QueryWrapper.prototype.findAll = function () {
 /**
  * Sets variables for a basic find
  * @param  {Mixed}    key     The key value to search for
- * @param  {Boolean} required If the promise should be rejected if no value is found
+ * @param  {Boolean} required Reject the promise if no value is found?
  * @return {Object}           The QueryWrapper istance
  */
 QueryWrapper.prototype.find = function (key, required) {
@@ -542,7 +543,8 @@ var handleInsertUpsert = function (values, key, type) {
  * @return {Object}        The QueryWrapper instance
  */
 QueryWrapper.prototype.insert = function (values, key) {
-  return handleInsertUpsert.call(this, values, key, QueryWrapper.queryTypes.INSERT);
+  return handleInsertUpsert.call(this,
+    values, key, QueryWrapper.queryTypes.INSERT);
 };
 
 /**
@@ -551,7 +553,8 @@ QueryWrapper.prototype.insert = function (values, key) {
  * @return {Object}        The QueryWrapper instance
  */
 QueryWrapper.prototype.upsert = function (values, key) {
-  return handleInsertUpsert.call(this, values, key, QueryWrapper.queryTypes.UPSERT);
+  return handleInsertUpsert.call(this,
+    values, key, QueryWrapper.queryTypes.UPSERT);
 };
 
 /**
