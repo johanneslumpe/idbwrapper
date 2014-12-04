@@ -1,3 +1,4 @@
+*this project is put on hold indefinitely and is currently not being maintained*
 # IDBWrapper
 An ongoing effort to create a promise-based api for indexedDB with an api, which I personally like.
 This project exists because I wanted a wrapper, that suited my needs, which I could shape in whatever
